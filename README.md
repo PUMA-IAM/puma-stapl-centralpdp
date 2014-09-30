@@ -1,5 +1,5 @@
-puma-stapl-pdp
-==============
+puma-stapl-centralpdp
+=====================
 
 The central STAPL PDP for the PUMA IAM middleware.  
 For more information on PUMA see https://github.com/PUMA-IAM/puma-project.  
