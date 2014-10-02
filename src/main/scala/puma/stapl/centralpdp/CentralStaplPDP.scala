@@ -106,7 +106,7 @@ class CentralStaplPDP extends RemotePDPService.Iface with Logging {
     request
   }
   
-  private def toACT(typ: ObjectTypeP) = typ match {
+  private def toACT(typ: ObjectTypeP): AttributeContainerType = typ match {
     case ObjectTypeP.SUBJECT => SUBJECT
     case ObjectTypeP.RESOURCE => RESOURCE
     case ObjectTypeP.ACTION => ACTION
