@@ -16,6 +16,7 @@ import puma.stapl.pip.SubjectAttributeFinderModule
 
 class CentralStaplPDP extends RemotePDPService.Iface with Logging {
 
+  // TODO preliminary implementation
   protected def pdp: PDP = _pdp
   
   private lazy val _pdp = new PDP({
@@ -90,6 +91,14 @@ class CentralStaplPDP extends RemotePDPService.Iface with Logging {
     var subject, action, resource : Option[String] = None
     val convertedAttributes: Seq[((String, AttributeContainerType), ConcreteValue)] = 
       for(attr <- attributes) yield {
+        if(attr.getId() == "id") {
+          if(subject.isEmpty && attr.getObjectType() == ObjectTypeP.SUBJECT) 
+            subject = Some(attr.getStringValues().get(0))
+          else if(action.isEmpty && attr.getObjectType() == ObjectTypeP.ACTION) 
+            action = Some(attr.getStringValues().get(0))
+          else if(resource.isEmpty && attr.getObjectType() == ObjectTypeP.RESOURCE) 
+            resource = Some(attr.getStringValues().get(0))
+        }
         (attr.getId(), toACT(attr.getObjectType())) -> toConcreteValue(attr)
       }
     val request = new RequestCtx(subject.getOrElse(""), action.getOrElse(""), resource.getOrElse(""))
@@ -109,11 +118,11 @@ class CentralStaplPDP extends RemotePDPService.Iface with Logging {
     
     if (value.getMultiplicity() == MultiplicityP.ATOMIC)
       value.getDataType() match {
-        case DataTypeP.BOOLEAN => value.getBooleanValues().asScala.head.asInstanceOf[Boolean]
-        case DataTypeP.DOUBLE => value.getDoubleValues().asScala.head.asInstanceOf[Double]
-        case DataTypeP.INTEGER => value.getIntValues().asScala.head.asInstanceOf[Int]
-        case DataTypeP.STRING => value.getStringValues().asScala.head
-        case DataTypeP.DATETIME => new LocalDateTime(value.getDatetimeValues().asScala.head)
+        case DataTypeP.BOOLEAN => value.getBooleanValues().get(0).asInstanceOf[Boolean]
+        case DataTypeP.DOUBLE => value.getDoubleValues().get(0).asInstanceOf[Double]
+        case DataTypeP.INTEGER => value.getIntValues().get(0).asInstanceOf[Int]
+        case DataTypeP.STRING => value.getStringValues().get(0)
+        case DataTypeP.DATETIME => new LocalDateTime(value.getDatetimeValues().get(0))
       }
     else
       value.getDataType() match {
