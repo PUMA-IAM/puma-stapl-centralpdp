@@ -66,6 +66,11 @@
     	<artifactId>stapl-core</artifactId>
     	<version>0.0.1-SNAPSHOT</version>
     </dependency>
+    <dependency>
+    	<groupId>puma</groupId>
+    	<artifactId>puma-pip-utils</artifactId>
+    	<version>1.0</version>
+    </dependency>
   </dependencies>
 
   <build>
