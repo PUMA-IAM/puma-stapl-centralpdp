@@ -9,7 +9,7 @@ import scala.collection.JavaConversions.asScalaSet
 
 class SubjectAttributeFinderModule extends AttributeFinderModule {
   
-  val db = EntityDatabase.getInstance()
+  private val db = EntityDatabase.getInstance()
   db.open(true)
   
   override def find(ctx: EvaluationCtx, cType: AttributeContainerType, 

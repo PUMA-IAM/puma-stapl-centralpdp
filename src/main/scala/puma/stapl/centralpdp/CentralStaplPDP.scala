@@ -13,6 +13,11 @@ import puma.thrift.pdp.MultiplicityP
 import org.joda.time.LocalDateTime
 import stapl.core.pdp.AttributeFinder
 import puma.stapl.pip.SubjectAttributeFinderModule
+import org.apache.thrift.transport.TServerTransport
+import org.apache.thrift.transport.TServerSocket
+import org.apache.thrift.transport.TTransportException
+import org.apache.thrift.server.TServer
+import org.apache.thrift.server.TThreadPoolServer
 
 class CentralStaplPDP extends RemotePDPService.Iface with Logging {
 
@@ -133,4 +138,34 @@ class CentralStaplPDP extends RemotePDPService.Iface with Logging {
         case DataTypeP.DATETIME => value.getDatetimeValues().asScala.map(date => new LocalDateTime(date))
       }
   }
+}
+
+// TODO merge this with XACML version?
+object Main extends Logging {
+  
+  private val THRIFT_PDP_PORT = 9091
+  
+  def main(args: Array[String]) {
+    
+    val pdp = new CentralStaplPDP
+    
+    new Thread(new Runnable() {     
+      @Override
+      def run() {
+        val pdpProcessor: RemotePDPService.Processor[CentralStaplPDP] = new RemotePDPService.Processor[CentralStaplPDP](pdp)
+        val pdpServerTransport: TServerTransport =
+        try {
+          new TServerSocket(THRIFT_PDP_PORT);
+        } catch {
+          case e: TTransportException => 
+            e.printStackTrace();
+            return;
+        }
+        val pdpServer: TServer = new TThreadPoolServer(new TThreadPoolServer.Args(pdpServerTransport).processor(pdpProcessor));
+        info("Setting up the Thrift PDP server on port " + THRIFT_PDP_PORT);
+        pdpServer.serve();
+      }
+    }).start();
+  }
+  
 }
