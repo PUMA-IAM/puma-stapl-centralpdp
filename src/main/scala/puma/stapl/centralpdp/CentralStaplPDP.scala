@@ -154,18 +154,18 @@ object Main extends Logging {
       def run() {
         val pdpProcessor: RemotePDPService.Processor[CentralStaplPDP] = new RemotePDPService.Processor[CentralStaplPDP](pdp)
         val pdpServerTransport: TServerTransport =
-        try {
-          new TServerSocket(THRIFT_PDP_PORT);
-        } catch {
-          case e: TTransportException => 
-            e.printStackTrace();
-            return;
-        }
-        val pdpServer: TServer = new TThreadPoolServer(new TThreadPoolServer.Args(pdpServerTransport).processor(pdpProcessor));
-        info("Setting up the Thrift PDP server on port " + THRIFT_PDP_PORT);
-        pdpServer.serve();
+          try {
+            new TServerSocket(THRIFT_PDP_PORT)
+          } catch {
+            case e: TTransportException => 
+              e.printStackTrace()
+              return
+          }
+        val pdpServer: TServer = new TThreadPoolServer(new TThreadPoolServer.Args(pdpServerTransport).processor(pdpProcessor))
+        info("Setting up the Thrift PDP server on port " + THRIFT_PDP_PORT)
+        pdpServer.serve()
       }
-    }).start();
+    }).start()
   }
   
 }
