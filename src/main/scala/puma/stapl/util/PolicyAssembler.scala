@@ -16,35 +16,34 @@ import org.parboiled2.ParseError
 import stapl.core._
 import stapl.parser.AttributesParser
 import stapl.parser.CompleteParser
+import scala.util.Try
 
 object PolicyAssembler {
 
   private val XacmlId = """(?:subject:|resource:|action:|environment:)?(.+)""".r
   
-  final val ATTRIBUTE_DEFINITIONS_FILE = "global.stapl"
+  final val GLOBAL_ATTRIBUTE_DEFINITIONS_FILE = "global.stapl"
   private val db = EntityDatabase.getInstance()
   db.open(true)
   
-  def getGlobalPolicy(policyDir: String, identifiers: Seq[String]): Either[AbstractPolicy, Exception] = try {
-    val globalAttributes = AttributesParser.parse(FileUtils.readFileToString(new File(ATTRIBUTE_DEFINITIONS_FILE)))
+  def getGlobalPolicy(policyDir: String, identifiers: Seq[String]): Try[AbstractPolicy] = 
+    Try {
+      val globalAttributes = AttributesParser.parse(FileUtils.readFileToString(new File(policyDir + GLOBAL_ATTRIBUTE_DEFINITIONS_FILE)))
     
-    val centralPolicy = CompleteParser.parse(
-        FileUtils.readFileToString(new File(CentralStaplPDP.CENTRAL_PUMA_POLICY_ID + ".stapl")),
-        globalAttributes) // XXX does the central policy specify new attributes?
-    
-    val tenantPolicies = for(id <- identifiers) yield getTenantPolicy(id, globalAttributes)
-    
-    val globalPolicy = Policy(CentralStaplPDP.CENTRAL_PUMA_POLICY_ID) := apply DenyOverrides to (
-        centralPolicy +: tenantPolicies: _*
-    )
-    
-    Left(globalPolicy)
-  } catch {
-    //case e: IOException => Right(e)    XXX is this correct?
-    case e: Exception => Right(e)
+      val centralPolicy = CompleteParser.parse(
+          FileUtils.readFileToString(new File(policyDir + CentralStaplPDP.CENTRAL_PUMA_POLICY_ID + ".stapl")),
+          globalAttributes) // XXX does the central policy specify new attributes?
+      
+      val tenantPolicies = for(id <- identifiers) yield getTenantPolicy(policyDir, id, globalAttributes)
+      
+      val globalPolicy = Policy(CentralStaplPDP.CENTRAL_PUMA_POLICY_ID) := apply DenyOverrides to (
+          centralPolicy +: tenantPolicies: _*
+      )
+      
+      globalPolicy
   }
   
-  private def getTenantPolicy(id: String, globalAttributes: Seq[Attribute]): AbstractPolicy = {
+  private def getTenantPolicy(policyDir: String, id: String, globalAttributes: Seq[Attribute]): AbstractPolicy = {
     import scala.collection.JavaConverters._
     val attributes: Seq[Attribute] = 
       for(family <- db.getAttributeFamiliesOfTenant(id).asScala) yield {
@@ -62,7 +61,7 @@ object PolicyAssembler {
         }
       }
     
-    PolicyParser.parse(FileUtils.readFileToString(new File(id + ".stapl")), globalAttributes ++ attributes)
+    PolicyParser.parse(FileUtils.readFileToString(new File(policyDir + id + ".stapl")), globalAttributes ++ attributes)
   }
 
 }

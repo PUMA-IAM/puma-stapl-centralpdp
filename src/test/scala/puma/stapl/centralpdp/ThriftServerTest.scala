@@ -1,4 +1,4 @@
-package puma.stapl.centralpdp
+/*package puma.stapl.centralpdp
 
 import org.scalatest.FunSuite
 import org.scalatest.BeforeAndAfterAll
@@ -353,4 +353,4 @@ class ThriftServerTest extends FunSuite with BeforeAndAfterAll {
     assert(decision === PDPDecision.INDETERMINATE)
   }
   
-}
+}*/
