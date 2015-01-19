@@ -262,7 +262,7 @@ class CentralStaplPDP(policyDir: String) extends RemotePDPService.Iface with Cen
   private  def getDeployedTenantPolicies(): Seq[String] = {
     val currentDirectory = new File(this.policyDir)
     currentDirectory.listFiles() flatMap { next =>
-      if (next.isFile() && !next.getName().endsWith("~")) {
+      if (next.isFile() && next.getName().endsWith(".stapl")) {
         Try {
           next.getName().substring(0, next.getName().indexOf(".")).toLong
         } match {
