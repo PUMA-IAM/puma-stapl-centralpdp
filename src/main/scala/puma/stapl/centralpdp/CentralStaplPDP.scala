@@ -83,9 +83,6 @@ class CentralStaplPDP(policyDir: String) extends RemotePDPService.Iface with Cen
   
   private var status: String = "NOT INITIALIZED"
   
-  // start the initialization process of this PDP
-  initializePDP()
-  
   // TODO preliminary implementation
   protected var pdp: PDP = _
   
@@ -387,6 +384,9 @@ class CentralStaplPDP(policyDir: String) extends RemotePDPService.Iface with Cen
         .filter(MetricFilter.ALL).build(graphite))
     reporter.foreach{ _.start(10, TimeUnit.SECONDS) }
   }
+  
+  // start the initialization process of this PDP
+  initializePDP()
 }
 
 // TODO merge this with XACML version?
