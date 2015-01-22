@@ -28,6 +28,7 @@ object PolicyAssembler {
   
   def getGlobalPolicy(policyDir: String, identifiers: Seq[String]): Try[AbstractPolicy] = 
     Try {
+      import stapl.parser.AttributesParser.Strategies.NameToAttribute
       val globalAttributes = AttributesParser.parse(FileUtils.readFileToString(new File(policyDir + GLOBAL_ATTRIBUTE_DEFINITIONS_FILE)))
     
       val centralPolicy = CompleteParser.parse(
@@ -43,10 +44,10 @@ object PolicyAssembler {
       globalPolicy
   }
   
-  private def getTenantPolicy(policyDir: String, id: String, globalAttributes: Seq[Attribute]): AbstractPolicy = {
+  private def getTenantPolicy(policyDir: String, id: String, globalAttributes: Map[String, Attribute]): AbstractPolicy = {
     import scala.collection.JavaConverters._
-    val attributes: Seq[Attribute] = 
-      for(family <- db.getAttributeFamiliesOfTenant(id).asScala) yield {
+    val attributes: Map[String, Attribute] = 
+      (for(family <- db.getAttributeFamiliesOfTenant(id).asScala) yield {
         val typ = family.dataType match {
           case DataType.Boolean => Bool
           case DataType.DateTime => DateTime
@@ -56,10 +57,10 @@ object PolicyAssembler {
         val XacmlId(name) = family.xacmlName//.split(":").tail.mkString(":")
         
         family.multiplicity match {
-          case Multiplicity.ATOMIC => SimpleAttribute(SUBJECT, name, typ)
-          case Multiplicity.GROUPED => ListAttribute(SUBJECT, name, typ)
+          case Multiplicity.ATOMIC => name -> SimpleAttribute(SUBJECT, name, typ)
+          case Multiplicity.GROUPED => name -> ListAttribute(SUBJECT, name, typ)
         }
-      }
+      }).toMap
     
     PolicyParser.parse(FileUtils.readFileToString(new File(policyDir + id + ".stapl")), globalAttributes ++ attributes)
   }
