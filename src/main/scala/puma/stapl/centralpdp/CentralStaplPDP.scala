@@ -167,9 +167,9 @@ class CentralStaplPDP(policyDir: String) extends RemotePDPService.Iface with Cen
     
     val result = try{
       pdp.evaluate(toRequest(attributes)) match {
-        case Result(Permit, _) => ResponseTypeP.PERMIT
-        case Result(Deny, _) => ResponseTypeP.DENY
-        case Result(NotApplicable, _) => ResponseTypeP.NOT_APPLICABLE
+        case Result(Permit, _, _) => ResponseTypeP.PERMIT
+        case Result(Deny, _, _) => ResponseTypeP.DENY
+        case Result(NotApplicable, _, _) => ResponseTypeP.NOT_APPLICABLE
       }
     } catch {
       case e: Exception => 
