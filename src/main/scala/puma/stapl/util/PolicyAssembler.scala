@@ -38,7 +38,7 @@ object PolicyAssembler {
       val tenantPolicies = for(id <- identifiers) yield getTenantPolicy(policyDir, id, globalAttributes)
       
       import stapl.core.dsl._
-      val globalPolicy = Policy(CentralStaplPDP.CENTRAL_PUMA_POLICY_ID) := apply DenyOverrides to (
+      val globalPolicy = Policy(CentralStaplPDP.GLOBAL_PUMA_POLICY_ID) := apply DenyOverrides to (
           centralPolicy +: tenantPolicies: _*
       )
       
