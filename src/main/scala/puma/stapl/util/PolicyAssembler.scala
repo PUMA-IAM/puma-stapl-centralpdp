@@ -55,11 +55,13 @@ object PolicyAssembler {
           case DataType.Integer => Number
           case DataType.String => String
         }
-        val XacmlId(name) = family.xacmlName//.split(":").tail.mkString(":")
+        //val XacmlId(name) = family.xacmlName//.split(":").tail.mkString(":")
+        val name = family.simpleName
+        val key = "subject." + family.simpleName
         
         family.multiplicity match {
-          case Multiplicity.ATOMIC => name -> SimpleAttribute(SUBJECT, name, typ)
-          case Multiplicity.GROUPED => name -> ListAttribute(SUBJECT, name, typ)
+          case Multiplicity.ATOMIC => key -> SimpleAttribute(SUBJECT, name, typ)
+          case Multiplicity.GROUPED => key -> ListAttribute(SUBJECT, name, typ)
         }
       }).toMap
     
