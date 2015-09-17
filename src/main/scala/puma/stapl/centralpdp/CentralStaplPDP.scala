@@ -1,14 +1,8 @@
 package puma.stapl.centralpdp
 
-import puma.thrift.pdp.RemotePDPService
-import puma.thrift.pdp.AttributeValueP
-import puma.thrift.pdp.ResponseTypeP
 import stapl.core.pdp.RequestCtx
 import stapl.core.pdp.PDP
 import grizzled.slf4j.Logging
-import puma.thrift.pdp.DataTypeP
-import puma.thrift.pdp.ObjectTypeP
-import puma.thrift.pdp.MultiplicityP
 import org.joda.time.LocalDateTime
 import stapl.core.pdp.AttributeFinder
 import puma.stapl.pip.SubjectAttributeFinderModule
@@ -67,19 +61,28 @@ import org.apache.commons.cli.ParseException
 import java.rmi.registry.LocateRegistry
 import java.rmi.RemoteException
 import java.rmi.server.UnicastRemoteObject
+import puma.rest.domain.ObjectType
+import puma.rest.domain.AttributeValue
+import puma.rest.domain.DataType
+import puma.rest.domain.Multiplicity
+import puma.rest.domain.ResponseType
 
-object CentralStaplPDP {
+@throws[IOException]
+object CentralStaplPDP extends Logging {
+  
+  lazy val policyDir: String = {
+    val property = System.getProperty("puma.centralpdp.policydir")
+    info(s"property puma.centralpdp.policydir = $property")
+    property
+  }
+  
+  
   final val TIMER_NAME = "centralpumapdp.evaluate"
   
   final val CENTRAL_PUMA_POLICY_ID = "central-puma-policy"
 
   final val GLOBAL_PUMA_POLICY_ID = "global-puma-policy"
-}
-
-@throws[IOException]
-class CentralStaplPDP(policyDir: String) extends RemotePDPService.Iface with CentralPUMAPDPMgmtRemote with Logging {
   
-  import CentralStaplPDP._
   
   private var status: String = "NOT INITIALIZED"
   
@@ -159,7 +162,7 @@ class CentralStaplPDP(policyDir: String) extends RemotePDPService.Iface with Cen
     finder
   })*/
   
-  override def evaluateP(list: java.util.List[AttributeValueP]): ResponseTypeP = {
+  def evaluate(list: java.util.List[AttributeValue]): ResponseType = {
     val timerCtx = TimerFactory.getInstance().getTimer(getClass(), TIMER_NAME).time()
     
     import scala.collection.JavaConverters._
@@ -167,33 +170,33 @@ class CentralStaplPDP(policyDir: String) extends RemotePDPService.Iface with Cen
     
     val result = try{
       pdp.evaluate(toRequest(attributes)) match {
-        case Result(Permit, _, _) => ResponseTypeP.PERMIT
-        case Result(Deny, _, _) => ResponseTypeP.DENY
-        case Result(NotApplicable, _, _) => ResponseTypeP.NOT_APPLICABLE
+        case Result(Permit, _, _) => ResponseType.PERMIT
+        case Result(Deny, _, _) => ResponseType.DENY
+        case Result(NotApplicable, _, _) => ResponseType.NOT_APPLICABLE
       }
     } catch {
       case e: Exception => 
         debug(s"Exception thrown during evaluation: $e", e)
-        ResponseTypeP.INDETERMINATE
+        ResponseType.INDETERMINATE
     }
     
     timerCtx.stop()
     result
   }
   
-  private def toRequest(attributes: Seq[AttributeValueP]): RequestCtx = {
+  private def toRequest(attributes: Seq[AttributeValue]): RequestCtx = {
     var subject, action, resource : Option[String] = None
     val convertedAttributes: Seq[(Attribute, ConcreteValue)] = 
       for(attr <- attributes) yield {
         if(attr.getId() == "id") {
-          if(subject.isEmpty && attr.getObjectType() == ObjectTypeP.SUBJECT) 
+          if(subject.isEmpty && attr.getObjectType() == ObjectType.SUBJECT) 
             subject = Some(attr.getStringValues().get(0))
-          else if(action.isEmpty && attr.getObjectType() == ObjectTypeP.ACTION) 
+          else if(action.isEmpty && attr.getObjectType() == ObjectType.ACTION) 
             action = Some(attr.getStringValues().get(0))
-          else if(resource.isEmpty && attr.getObjectType() == ObjectTypeP.RESOURCE) 
+          else if(resource.isEmpty && attr.getObjectType() == ObjectType.RESOURCE) 
             resource = Some(attr.getStringValues().get(0))
         }
-        if(attr.getMultiplicity() == MultiplicityP.ATOMIC)
+        if(attr.getMultiplicity() == Multiplicity.ATOMIC)
           SimpleAttribute(toACT(attr.getObjectType()), attr.getId(), toAType(attr.getDataType())) -> toConcreteValue(attr)
         else
           ListAttribute(toACT(attr.getObjectType()), attr.getId(), toAType(attr.getDataType())) -> toConcreteValue(attr)
@@ -203,46 +206,46 @@ class CentralStaplPDP(policyDir: String) extends RemotePDPService.Iface with Cen
     request
   }
   
-  private def toAType(dataType: DataTypeP): AttributeType = dataType match {
-    case DataTypeP.BOOLEAN => Bool
-    case DataTypeP.DOUBLE => Number
-    case DataTypeP.INTEGER => Number
-    case DataTypeP.STRING => String
-    case DataTypeP.DATETIME => DateTime
+  private def toAType(dataType: DataType): AttributeType = dataType match {
+    case DataType.BOOLEAN => Bool
+    case DataType.DOUBLE => Number
+    case DataType.INTEGER => Number
+    case DataType.STRING => String
+    case DataType.DATETIME => DateTime
   }
   
-  private def toACT(typ: ObjectTypeP): AttributeContainerType = typ match {
-    case ObjectTypeP.SUBJECT => SUBJECT
-    case ObjectTypeP.RESOURCE => RESOURCE
-    case ObjectTypeP.ACTION => ACTION
-    case ObjectTypeP.ENVIRONMENT => ENVIRONMENT
+  private def toACT(typ: ObjectType): AttributeContainerType = typ match {
+    case ObjectType.SUBJECT => SUBJECT
+    case ObjectType.RESOURCE => RESOURCE
+    case ObjectType.ACTION => ACTION
+    case ObjectType.ENVIRONMENT => ENVIRONMENT
   }
   
-  private def toConcreteValue(value: AttributeValueP): ConcreteValue = {
+  private def toConcreteValue(value: AttributeValue): ConcreteValue = {
     import scala.collection.JavaConverters._
     
-    if (value.getMultiplicity() == MultiplicityP.ATOMIC)
+    if (value.getMultiplicity() == Multiplicity.ATOMIC)
       value.getDataType() match {
-        case DataTypeP.BOOLEAN => value.getBooleanValues().get(0).asInstanceOf[Boolean]
-        case DataTypeP.DOUBLE => value.getDoubleValues().get(0).asInstanceOf[Double]
-        case DataTypeP.INTEGER => value.getIntValues().get(0).asInstanceOf[Int]
-        case DataTypeP.STRING => value.getStringValues().get(0)
-        case DataTypeP.DATETIME => new LocalDateTime(value.getDatetimeValues().get(0))
+        case DataType.BOOLEAN => value.getBooleanValues().get(0).asInstanceOf[Boolean]
+        case DataType.DOUBLE => value.getDoubleValues().get(0).asInstanceOf[Double]
+        case DataType.INTEGER => value.getIntValues().get(0).asInstanceOf[Int]
+        case DataType.STRING => value.getStringValues().get(0)
+        case DataType.DATETIME => new LocalDateTime(value.getDatetimeValues().get(0))
       }
     else
       value.getDataType() match {
-        case DataTypeP.BOOLEAN => value.getBooleanValues().asScala.asInstanceOf[Seq[Boolean]]
-        case DataTypeP.DOUBLE => value.getDoubleValues().asScala.asInstanceOf[Seq[Double]]
-        case DataTypeP.INTEGER => value.getIntValues().asScala.asInstanceOf[Seq[Int]]
-        case DataTypeP.STRING => value.getStringValues().asScala
-        case DataTypeP.DATETIME => value.getDatetimeValues().asScala.map(date => new LocalDateTime(date))
+        case DataType.BOOLEAN => value.getBooleanValues().asScala.asInstanceOf[Seq[Boolean]]
+        case DataType.DOUBLE => value.getDoubleValues().asScala.asInstanceOf[Seq[Double]]
+        case DataType.INTEGER => value.getIntValues().asScala.asInstanceOf[Seq[Int]]
+        case DataType.STRING => value.getStringValues().asScala
+        case DataType.DATETIME => value.getDatetimeValues().asScala.map(date => new LocalDateTime(date))
       }
   }
   
   
   /* CentralPUMAPDPMgmtRemote implementation */
   
-  override def getCentralPUMAPolicy(): String = {
+  def getCentralPUMAPolicy(): String = {
     try {
       FileUtils.readFileToString(new File(centralPUMAPolicyFilename))
     } catch {
@@ -254,7 +257,7 @@ class CentralStaplPDP(policyDir: String) extends RemotePDPService.Iface with Cen
   
   private val identifiers: Buffer[String] = Buffer.empty[String]
   
-  override def getIdentifiers(): java.util.List[String] = {
+  def getIdentifiers(): java.util.List[String] = {
     import scala.collection.JavaConverters._
     identifiers.asJava
   }
@@ -273,9 +276,9 @@ class CentralStaplPDP(policyDir: String) extends RemotePDPService.Iface with Cen
     }
   }
   
-  override def getStatus(): String = status
+  def getStatus(): String = status
   
-  override def loadCentralPUMAPolicy(policy: String) {
+  def loadCentralPUMAPolicy(policy: String) {
     val writer =
       try {
         new PrintWriter(centralPUMAPolicyFilename, "UTF-8")
@@ -299,7 +302,7 @@ class CentralStaplPDP(policyDir: String) extends RemotePDPService.Iface with Cen
   
   private def constructFilename(id: String): String = this.policyDir + id + ".stapl"
   
-  override def loadTenantPolicy(tenantId: String, policy: String) {
+  def loadTenantPolicy(tenantId: String, policy: String) {
     try {
       val writer = new PrintWriter(
           this.constructFilename(tenantId), "UTF-8")
@@ -350,11 +353,11 @@ class CentralStaplPDP(policyDir: String) extends RemotePDPService.Iface with Cen
     pdp = new PDP(policy, finder)
   }
   
-  override def reload() {
+  def reload() {
     this.reload(() => (), e => ())
   }
   
-  override def getMetrics(): String = {
+  def getMetrics(): String = {
     val mapper: ObjectMapper = new ObjectMapper()
     val writer: ObjectWriter = mapper.writerWithDefaultPrettyPrinter()
     try {
@@ -368,7 +371,7 @@ class CentralStaplPDP(policyDir: String) extends RemotePDPService.Iface with Cen
   
   private var reporter: Option[GraphiteReporter] = None
   
-  override def resetMetrics() {
+  def resetMetrics() {
     TimerFactory.getInstance().resetAllTimers()
 
     // connect metrics to the Graphite server
@@ -387,101 +390,4 @@ class CentralStaplPDP(policyDir: String) extends RemotePDPService.Iface with Cen
   
   // start the initialization process of this PDP
   initializePDP()
-}
-
-// TODO merge this with XACML version?
-object Main extends Logging {
-  
-  private val THRIFT_PDP_PORT = 9071
-  private val RMI_REGISITRY_PORT = 2040
-  private val CENTRAL_PUMA_PDP_RMI_NAME = "central-puma-pdp-stapl"
-  
-  def main(args: Array[String]) {
-    
-    val parser: CommandLineParser = new BasicParser()
-    val options = new Options()
-    options.addOption("ph", "policy-home", true,
-        "The folder where to find the policy file given with the given policy id. "
-        + "For default operation, this folder should contain the central PUMA policy (called " + CentralStaplPDP.CENTRAL_PUMA_POLICY_ID + ".stapl)")
-    /*options.addOption("pid", "policy-id", true,
-        "The id of the policy to be evaluated on decision requests. Default value: " + GLOBAL_PUMA_POLICY_ID + ")")
-    options.addOption("s", "log-disabled", true, "Verbose mode (true/false)")*/
-    var policyHome = ""
-    //var policyId = ""
-
-    // read command line
-    try {
-      val line = parser.parse(options, args)
-      if (line.hasOption("help")) {
-        val formatter = new HelpFormatter()
-        formatter.printHelp("Simple PDP Test", options)
-        return
-      }
-      if (line.hasOption("policy-home")) {
-        policyHome = line.getOptionValue("policy-home")
-      } else {
-        warn("Incorrect arguments given.")
-        return
-      }
-      /*if (line.hasOption("log-disabled") && Boolean.parseBoolean(line.getOptionValue("log-disabled"))) {
-        info("Now switching to silent mode")
-        LogManager.getLogManager().getLogger("").setLevel(Level.WARNING)
-        //LogManager.getLogManager().reset()
-      } 
-      if (line.hasOption("policy-id")) {
-        policyId = line.getOptionValue("policy-id")
-      } else {
-        info("Using default policy id: " + CentralStaplPDP.GLOBAL_PUMA_POLICY_ID)
-        policyId = CentralStaplPDP.GLOBAL_PUMA_POLICY_ID
-      }*/
-    } catch {
-      case e: ParseException =>
-        warn("Incorrect arguments given.", e)
-        return
-    }
-    
-    
-    val pdp = new CentralStaplPDP(policyHome)
-    
-    // SETUP RMI
-    try {
-      val registry = try {
-        val reg = LocateRegistry.createRegistry(RMI_REGISITRY_PORT)
-        info("Created new RMI registry")
-        reg
-      } catch {
-        case e: RemoteException =>
-          val reg = LocateRegistry.getRegistry(RMI_REGISITRY_PORT)
-          info("Reusing existing RMI registry")
-          reg
-      }
-      val stub = UnicastRemoteObject.exportObject(pdp, 0)//.asInstanceOf[CentralPUMAPDPMgmtRemote]
-      registry.bind(CENTRAL_PUMA_PDP_RMI_NAME, stub)
-      info("Central PUMA PDP up and running (available using RMI with name \"central-puma-pdp\" on RMI registry port " + RMI_REGISITRY_PORT + ")")
-      Thread.sleep(100)
-    } catch {
-      case e: Exception =>
-        error("FAILED to set up PDP as RMI server", e)
-    }
-    
-    // SETUP THRIFT
-    new Thread(new Runnable() {     
-      @Override
-      def run() {
-        val pdpProcessor: RemotePDPService.Processor[CentralStaplPDP] = new RemotePDPService.Processor[CentralStaplPDP](pdp)
-        val pdpServerTransport: TServerTransport =
-          try {
-            new TServerSocket(THRIFT_PDP_PORT)
-          } catch {
-            case e: TTransportException => 
-              e.printStackTrace()
-              return
-          }
-        val pdpServer: TServer = new TThreadPoolServer(new TThreadPoolServer.Args(pdpServerTransport).processor(pdpProcessor))
-        info("Setting up the Thrift PDP server on port " + THRIFT_PDP_PORT)
-        pdpServer.serve()
-      }
-    }).start()
-  }
-  
 }
